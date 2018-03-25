@@ -1,55 +1,54 @@
-using Lazy, HTTP
+using HTTP
 
-export respond, mux
+# export respond, mux
 
 # Utils
 
 pre(f) = (app, req) -> app(f(req))
 post(f) = (app, req) -> f(app(req))
 
-# Request
+### Working with requests
+# Rather than converting the requests into a different Dict-based format we will make it easier to work with the HTTP.Request type
 
-function todict(req::Request)
-  req′ = Dict()
-  req′[:method]   = req.method
-  req′[:headers]  = req.headers
-  req′[:resource] = req.uri
-  req′[:data] = read(req.body)
-  return req′
-end
+# Easy way to get request content
+body(req::HTTP.Request) = HTTP.IOExtras.bytes(req.body)
 
-todict(app, req) = app(todict(req))
+# Easy way to access headers
+# TODO: These may be duplicated here: https://github.com/JuliaWeb/HTTP.jl/blob/master/src/Messages.jl#L361-L364
+hasheader(req::HTTP.Request, header::AbstractString) =
+    count(h -> h.first == header) > 0
+getheaders(req::HTTP.Request, header::AbstractString) =
+    filter(h -> h.first == header)
+firstheader(req::HTTP.Request, header::AbstractString) =
+    hasheader(req, header) ? filter(req, header)[1] : nothing
 
-function splitquery(app, req)
-  uri = req[:resource]
-  req[:path]  = splitpath(HTTP.path(uri))
-  req[:query] = HTTP.query(uri)
-  app(req)
-end
+# Easy ways to deal with URIs
+path(req::HTTP.Request) = HTTP.URI(req.target).path
+query(req::HTTP.Request) = HTTP.URI(req.target).query
 
-params!(req) = get!(req, :params, d())
+# params!(req) = get!(req, :params, d())
 
-# Response
+### Working with responses
+# Not currently adding any -- there are good construction methods for them in HTTP
 
-import HTTP: Response
 
-Response(d::Associative) =
-  Response(get(d, :status, 200),
-           convert(HTTP.Headers, get(d, :headers, HTTP.Headers())),
-           get(d, :body, ""))
+# Response(d::Associative) = HTTP.Response(
+#     get(d, :status, 200),
+#     convert(HTTP.Headers, get(d, :headers, HTTP.Headers())),
+#            get(d, :body, ""))
+#
+# Response(o) = Response(stringmime(MIME"text/html"(), o))
+#
+# response(d) = d
+# response(s::AbstractString) = d(:body=>s)
+#
+# toresponse(app, req) = Response(response(app(req)))
+#
+# respond(res) = req -> response(res)
 
-Response(o) = Response(stringmime(MIME"text/html"(), o))
-
-response(d) = d
-response(s::AbstractString) = d(:body=>s)
-
-toresponse(app, req) = Response(response(app(req)))
-
-respond(res) = req -> response(res)
-
-reskey(k, v) = post(res -> merge!(res, d(k=>v)))
-
-status(s) = reskey(:status, s)
+# reskey(k, v) = post(res -> merge!(res, d(k=>v)))
+#
+# status(s) = reskey(:status, s)
 
 # Error handling
 
@@ -83,6 +82,12 @@ function basiccatch(app, req)
     println(io, "<pre class=\"box\">")
     showerror(io, e, catch_backtrace())
     println(io, "</pre>")
-    return d(:status => 500, :body => String(take!(io)))
+    return HTTP.Response(500, String(take!(io)))
   end
+end
+
+function nothingtosee(app, req)
+    res =  HTTP.Response(200, "{message: \"Nothing to see here\"}")
+    push!(res.headers, Pair("Content-Type", "application/json"))
+    return res
 end

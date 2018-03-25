@@ -25,12 +25,12 @@ include("server.jl")
 include("basics.jl")
 include("routing.jl")
 
-include("websockets_integration.jl")
+# include("websockets_integration.jl")
 
-include("examples/basic.jl")
-include("examples/files.jl")
+# include("examples/basic.jl")
+# include("examples/files.jl")
 
-defaults = stack(todict, basiccatch, splitquery, toresponse, pkgfiles)
-wdefaults = stack(todict, wcatch, splitquery)
+# defaults = stack(todict, basiccatch, splitquery, toresponse, pkgfiles)
+# wdefaults = stack(todict, wcatch, splitquery)
 
 end

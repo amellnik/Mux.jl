@@ -1,6 +1,6 @@
 using Mux
 using Base.Test
-using Lazy
+using Lazy, HTTP
 
 @test Mux.notfound()(d())[:status] == 404
 
@@ -12,9 +12,9 @@ using Lazy
   page("/user/:user", req -> "<h1>Hello, $(req[:params][:user])!</h1>"),
   Mux.notfound())
 serve(test)
-@test readstring(HTTP.body(HTTP.get("http://localhost:8000"))) ==
+@test string(HTTP.get("http://localhost:8000").body) ==
             "<h1>Hello World!</h1>"
-@test readstring(HTTP.body(HTTP.get("http://localhost:8000/about"))) ==
+@test string(HTTP.get("http://localhost:8000/about").body) ==
             "<h1>Boo!</h1>"
-@test readstring(HTTP.body(HTTP.get("http://localhost:8000/user/julia"))) ==
+@test string(HTTP.get("http://localhost:8000/user/julia").body) ==
             "<h1>Hello, julia!</h1>"

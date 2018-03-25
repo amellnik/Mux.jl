@@ -1,4 +1,4 @@
-using HTTP.Nitrogen, HTTP.HandlerFunction, Lazy
+using Lazy, HTTP
 
 import Base.Meta.isexpr
 
@@ -16,8 +16,9 @@ end
 macro app(def)
   @assert isexpr(def, :(=))
   name, warez = def.args
+  # Is warez a tuple or a single function?  If the former then chain them all together into a single function with mux
   warez = isexpr(warez, :tuple) ? Expr(:call, :mux, map(esc, warez.args)...) : warez
-  quote
+  quote  # I have no clue what this section does
     if isdefined($(Expr(:quote, name)))
       $(esc(name)).warez = $warez
     else
@@ -28,36 +29,36 @@ macro app(def)
 end
 
 # conversion functions for known http_handler return objects
-mk_response(d) = d
-function mk_response(d::Dict)
-  r = HTTP.Response(get(d, :status, 200))
-  haskey(d, :body) && (r.body = HTTP.FIFOBuffer(d[:body]))
-  haskey(d, :headers) && (r.headers = d[:headers])
-  return r
-end
+# mk_response(d) = d
+# function mk_response(d::Dict)
+#   r = HTTP.Response(get(d, :status, 200))
+#   haskey(d, :body) && (r.body = HTTP.FIFOBuffer(d[:body]))
+#   haskey(d, :headers) && (r.headers = d[:headers])
+#   return r
+# end
+#
+# function http_handler(app::App)
+#   handler = HTTP.Handlers.HandlerFunction(req -> mk_response(app.warez(req)))
+#   # handler.events["error"]  = (client, error) -> println(error)
+#   # handler.events["listen"] = (port)          -> println("Listening on $port...")
+#   return handler
+# end
 
-function http_handler(app::App)
-  handler = HandlerFunction((req, res) -> mk_response(app.warez(req)))
-  # handler.events["error"]  = (client, error) -> println(error)
-  # handler.events["listen"] = (port)          -> println("Listening on $port...")
-  return handler
-end
-
-function ws_handler(app::App)
-  handler = HandlerFunction((req, client) -> mk_response(app.warez((req, client))))
-  return handler
-end
+# function ws_handler(app::App)
+#   handler = HTTP.Handlers.HandlerFunction((req, client) -> mk_response(app.warez((req, client))))
+#   return handler
+# end
 
 const default_port = 8000
 const localhost = ip"127.0.0.1"
 
-function serve(s::Server, port = default_port; kws...)
-  @async @errs HTTP.serve(s, localhost, port; kws...)
+function serve(s::HTTP.Servers.Server, port = default_port; kws...)
+  @async @errs HTTP.Servers.serve(s, localhost, port; kws...)
   return
 end
 
 serve(h::App, port = default_port; kws...) =
-    serve(Server(http_handler(h)), port; kws...)
+    serve(HTTP.Servers.Server(http_handler(h)), port; kws...)
 
 serve(h::App, w::App, port = default_port) =
-    serve(Server(http_handler(h), ws_handler(w)), port)
+    serve(HTTP.Servers.Server(http_handler(h), ws_handler(w)), port)
